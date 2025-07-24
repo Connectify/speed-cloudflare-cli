@@ -224,34 +224,50 @@ async function speedTest() {
   const [ping, serverLocationData, { ip, loc, colo }] = await Promise.all([measureLatency(), fetchServerLocationData(), fetchCfCdnCgiTrace()]);
 
   const city = serverLocationData[colo];
-  logInfo("Server location", `${city} (${colo})`);
-  logInfo("Your IP", `${ip} (${loc})`);
-
-  logLatency(ping);
+  const results = {
+    server_location: `${city} (${colo})`,
+    your_ip: `${ip} (${loc})`,
+    latency: {
+      min: ping[0].toFixed(2),
+      max: ping[1].toFixed(2),
+      average: ping[2].toFixed(2),
+      median: ping[3].toFixed(2),
+      jitter: ping[4].toFixed(2)
+    },
+    download_speeds: [],
+    upload_speeds: []
+  };
 
   const testDown1 = await measureDownload(101000, 10);
-  logSpeedTestResult("100kB", testDown1);
+  results.download_speeds.push({ size: "100kB", speed: stats.median(testDown1).toFixed(2) });
 
   const testDown2 = await measureDownload(1001000, 8);
-  logSpeedTestResult("1MB", testDown2);
+  results.download_speeds.push({ size: "1MB", speed: stats.median(testDown2).toFixed(2) });
 
   const testDown3 = await measureDownload(10001000, 6);
-  logSpeedTestResult("10MB", testDown3);
+  results.download_speeds.push({ size: "10MB", speed: stats.median(testDown3).toFixed(2) });
 
   const testDown4 = await measureDownload(25001000, 4);
-  logSpeedTestResult("25MB", testDown4);
+  results.download_speeds.push({ size: "25MB", speed: stats.median(testDown4).toFixed(2) });
 
   const testDown5 = await measureDownload(100001000, 1);
-  logSpeedTestResult("100MB", testDown5);
+  results.download_speeds.push({ size: "100MB", speed: stats.median(testDown5).toFixed(2) });
 
   const downloadTests = [...testDown1, ...testDown2, ...testDown3, ...testDown4, ...testDown5];
-  logDownloadSpeed(downloadTests);
+  results.download_speeds.push({ size: "overall", speed: stats.quartile(downloadTests, 0.9).toFixed(2) });
 
   const testUp1 = await measureUpload(11000, 10);
   const testUp2 = await measureUpload(101000, 10);
   const testUp3 = await measureUpload(1001000, 8);
+  results.upload_speeds.push({ size: "10kB", speed: stats.median(testUp1).toFixed(2) });
+  results.upload_speeds.push({ size: "100kB", speed: stats.median(testUp2).toFixed(2) });
+  results.upload_speeds.push({ size: "1MB", speed: stats.median(testUp3).toFixed(2) });
+
   const uploadTests = [...testUp1, ...testUp2, ...testUp3];
-  logUploadSpeed(uploadTests);
+  results.upload_speeds.push({ size: "overall", speed: stats.quartile(uploadTests, 0.9).toFixed(2) });
+
+  // Output JSON
+  console.log(JSON.stringify(results, null, 2));
 }
 
 speedTest();
