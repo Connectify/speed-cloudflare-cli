@@ -4,6 +4,19 @@ const { performance } = require("perf_hooks");
 const https = require("https");
 const { magenta, bold, yellow, green, blue } = require("./chalk.js");
 const stats = require("./stats.js");
+let flushing = true;
+
+/**
+ * @typedef {Object} Results
+ * @property {string} server_location - Location string.
+ * @property {string} your_ip - IP address and location string.
+ * @property {{min: string, max: string, average: string, median: string, jitter: string}} latency - Latency metrics.
+ * @property {number[]} download_speeds - List of download speeds.
+ * @property {number[]} upload_speeds - List of upload speeds.
+ */
+
+/** @type {Results} */
+let results;
 
 async function get(hostname, path) {
   return new Promise((resolve, reject) => {
@@ -199,35 +212,78 @@ async function measureUpload(bytes, iterations) {
 }
 
 function logInfo(text, data) {
-  console.log(bold(" ".repeat(15 - text.length), `${text}:`, blue(data)));
+  if (flushing) {
+    console.log(bold(" ".repeat(15 - text.length), `${text}:`, blue(data)));
+  }
 }
 
 function logLatency(data) {
-  console.log(bold("         Latency:", magenta(`${data[3].toFixed(2)} ms`)));
-  console.log(bold("          Jitter:", magenta(`${data[4].toFixed(2)} ms`)));
+  if (flushing) {
+    console.log(bold("         Latency:", magenta(`${data.median} ms`)));
+    console.log(bold("          Jitter:", magenta(`${data.jitter} ms`)));
+  }
 }
 
-function logSpeedTestResult(size, test) {
-  const speed = stats.median(test).toFixed(2);
-  console.log(bold(" ".repeat(9 - size.length), size, "speed:", yellow(`${speed} Mbps`)));
+function logSpeedTestResult(display_size, test) {
+  const display_speed = stats.median(test).toFixed(2);
+  if (flushing) {
+    console.log(bold(" ".repeat(9 - display_size.length), display_size, "speed:", yellow(`${display_speed} Mbps`)));
+    return;
+  }
+  results.download_speeds.push({ size: display_size, speed: display_speed });
 }
 
 function logDownloadSpeed(tests) {
-  console.log(bold("  Download speed:", green(stats.quartile(tests, 0.9).toFixed(2), "Mbps")));
+  const display_speed = stats.quartile(tests, 0.9).toFixed(2);
+  if (flushing) {
+    console.log(bold("  Download speed:", green(display_speed, "Mbps")));
+    return;
+  }
+  results.download_speeds.push({ size: "overall", speed: display_speed });
 }
 
 function logUploadSpeed(tests) {
-  console.log(bold("    Upload speed:", green(stats.quartile(tests, 0.9).toFixed(2), "Mbps")));
+  const display_speed = stats.quartile(tests, 0.9).toFixed(2);
+  if (flushing) {
+    console.log(bold("    Upload speed:", green(display_speed, "Mbps")));
+    return;
+  }
+  results.upload_speeds.push({ size: "overall", speed: display_speed });
+}
+
+// Function to parse command-line arguments
+function parseArgs() {
+  const args = {};
+  process.argv.slice(2).forEach((arg) => {
+    if (arg.startsWith("--")) {
+      args[arg.slice(2)] = true;
+    }
+  });
+  return args;
 }
 
 async function speedTest() {
+  const args = parseArgs();
   const [ping, serverLocationData, { ip, loc, colo }] = await Promise.all([measureLatency(), fetchServerLocationData(), fetchCfCdnCgiTrace()]);
+  flushing = !args.json
 
   const city = serverLocationData[colo];
-  logInfo("Server location", `${city} (${colo})`);
-  logInfo("Your IP", `${ip} (${loc})`);
-
-  logLatency(ping);
+  results = {
+    server_location: `${city} (${colo})`,
+    your_ip: `${ip} (${loc})`,
+    latency: {
+      min: ping[0].toFixed(2),
+      max: ping[1].toFixed(2),
+      average: ping[2].toFixed(2),
+      median: ping[3].toFixed(2),
+      jitter: ping[4].toFixed(2)
+    },
+    download_speeds: [],
+    upload_speeds: []
+  };
+  logInfo("Server Location", results.server_location);
+  logInfo("Your IP", results.your_ip);
+  logLatency(results.latency);
 
   const testDown1 = await measureDownload(101000, 10);
   logSpeedTestResult("100kB", testDown1);
@@ -251,7 +307,12 @@ async function speedTest() {
   const testUp2 = await measureUpload(101000, 10);
   const testUp3 = await measureUpload(1001000, 8);
   const uploadTests = [...testUp1, ...testUp2, ...testUp3];
-  logUploadSpeed(uploadTests);
+  logUploadSpeed(uploadTests)
+
+  // Conditional output based on --json option
+  if (args.json) {
+    console.log(JSON.stringify(results, null, 2));
+  }
 }
 
 speedTest();
