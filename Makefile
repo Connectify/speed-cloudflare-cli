@@ -5,7 +5,7 @@ BINARY = cloudflare-speedtest
 all: $(BINARY)
 
 $(BINARY): cli.js
-	deno compile --unstable-detect-cjs --allow-net --output=$(BINARY) cli.js
+	deno compile --unstable-detect-cjs --allow-net --output=$@ $<
 
 clean:
 	rm -f $(BINARY)
