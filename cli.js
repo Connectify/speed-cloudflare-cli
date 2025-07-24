@@ -220,7 +220,24 @@ function logUploadSpeed(tests) {
   console.log(bold("    Upload speed:", green(stats.quartile(tests, 0.9).toFixed(2), "Mbps")));
 }
 
+const { performance } = require("perf_hooks");
+const https = require("https");
+const { magenta, bold, yellow, green, blue } = require("./chalk.js");
+const stats = require("./stats.js");
+
+// Function to parse command-line arguments
+function parseArgs() {
+  const args = {};
+  process.argv.slice(2).forEach((arg) => {
+    if (arg.startsWith("--")) {
+      args[arg.slice(2)] = true;
+    }
+  });
+  return args;
+}
+
 async function speedTest() {
+  const args = parseArgs();
   const [ping, serverLocationData, { ip, loc, colo }] = await Promise.all([measureLatency(), fetchServerLocationData(), fetchCfCdnCgiTrace()]);
 
   const city = serverLocationData[colo];
@@ -266,8 +283,20 @@ async function speedTest() {
   const uploadTests = [...testUp1, ...testUp2, ...testUp3];
   results.upload_speeds.push({ size: "overall", speed: stats.quartile(uploadTests, 0.9).toFixed(2) });
 
-  // Output JSON
-  console.log(JSON.stringify(results, null, 2));
+  // Conditional output based on --json option
+  if (args.json) {
+    console.log(JSON.stringify(results, null, 2));
+  } else {
+    logInfo("Server Location", results.server_location);
+    logInfo("Your IP", results.your_ip);
+    logLatency(results.latency);
+
+    const downloadSpeeds = results.download_speeds.map(test => `${test.size}: ${test.speed} Mbps`);
+    logDownloadSpeed(downloadSpeeds);
+
+    const uploadSpeeds = results.upload_speeds.map(test => `${test.size}: ${test.speed} Mbps`);
+    logUploadSpeed(uploadSpeeds);
+  }
 }
 
 speedTest();
