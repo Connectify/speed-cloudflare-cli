@@ -10,7 +10,8 @@ let flushing = true;
  * @property {string} your_ip - IP address and location string.
  * @property {{min: string, max: string, average: string, median: string, jitter: string}} latency - Latency metrics.
  * @property {number[]} download_speeds - List of download speeds.
- * @property {number[]} upload_speeds - List of upload speeds.
+ * @property {Array<{size: string, speed: string}>} download_speeds - List of download speeds.
+ * @property {Array<{size: string, speed: string}>} upload_speeds - List of upload speeds.
  */
 
 /** @type {Results} */
