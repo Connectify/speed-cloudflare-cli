@@ -12,7 +12,7 @@ This is a CLI tool that measures internet connection speed and latency using Clo
 - `node cli.js` - Run the speed test with colorized output
 - `node cli.js --json` - Run the speed test and output results as JSON
 - `npx speed-cloudflare-cli` - Run via npm (when installed globally)
-- `make clean test ARG=--json` will rebuild the binary and then execute it with json output
+- `make clean integration-test ARG=--json` will rebuild the binary and then execute it with json output
 
 ### Building
 - `make` or `make all` - Compile the CLI to a standalone binary using Deno
