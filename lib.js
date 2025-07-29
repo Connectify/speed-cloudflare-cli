@@ -102,7 +102,8 @@ function request(options, data = "") {
       res.on("data", () => {});
       res.on("end", () => {
         ended = performance.now();
-        resolve([started, dnsLookup, tcpHandshake, sslHandshake, ttfb, ended, parseFloat(res.headers["server-timing"].slice(22))]);
+        resolve({started, dnsLookup, tcpHandshake, sslHandshake, ttfb, ended,
+                 serverTiming: parseFloat(res.headers["server-timing"].slice(22))});
       });
     });
 
@@ -162,7 +163,7 @@ async function measureLatency() {
     await download(1000).then(
       (response) => {
         // TTFB - Server processing time
-        measurements.push(response[4] - response[0] - response[6]);
+        measurements.push(response.ttfb - response.started - response.serverTiming);
       },
       (error) => {
         console.error(`Error: ${error}`);
@@ -179,7 +180,7 @@ async function measureDownload(bytes, iterations) {
   for (let i = 0; i < iterations; i += 1) {
     await download(bytes).then(
       (response) => {
-        const transferTime = response[5] - response[4];
+        const transferTime = response.ended - response.ttfb;
         measurements.push(measureSpeed(bytes, transferTime));
       },
       (error) => {
@@ -197,7 +198,7 @@ async function measureUpload(bytes, iterations) {
   for (let i = 0; i < iterations; i += 1) {
     await upload(bytes).then(
       (response) => {
-        const transferTime = response[6];
+        const transferTime = response.serverTiming;
         measurements.push(measureSpeed(bytes, transferTime));
       },
       (error) => {
