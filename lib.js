@@ -165,7 +165,7 @@ async function measureLatency() {
         measurements.push(response[4] - response[0] - response[6]);
       },
       (error) => {
-        console.log(`Error: ${error}`);
+        console.error(`Error: ${error}`);
       },
     );
   }
@@ -183,7 +183,7 @@ async function measureDownload(bytes, iterations) {
         measurements.push(measureSpeed(bytes, transferTime));
       },
       (error) => {
-        console.log(`Error: ${error}`);
+        console.error(`Error: ${error}`);
       },
     );
   }
@@ -201,7 +201,7 @@ async function measureUpload(bytes, iterations) {
         measurements.push(measureSpeed(bytes, transferTime));
       },
       (error) => {
-        console.log(`Error: ${error}`);
+        console.error(`Error: ${error}`);
       },
     );
   }
