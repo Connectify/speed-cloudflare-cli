@@ -2,7 +2,7 @@
 BINARY = speed-cloudflare-cli
 
 # Any args to use when testing
-ARG ?= ""
+ARGS ?= ""
 
 # Phony targets that don't correspond to files
 .PHONY: test integration-test clean
@@ -20,7 +20,7 @@ test:
 	npm test
 
 integration-test: $(BINARY)
-	./$(BINARY) $(ARG)
+	./$(BINARY) $(ARGS)
 
 check: eslint prettier editorconfig
 
