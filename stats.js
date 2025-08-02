@@ -33,16 +33,16 @@ function quartile(values, percentile) {
 
 function jitter(values) {
   // Average distance between consecutive latency measurements...
-   let jitters = [];
+  const jitters = [];
 
   for (let i = 0; i < values.length - 1; i += 1) {
-    jitters.push(Math.abs(values[i] - values[i+1]));
+    jitters.push(Math.abs(values[i] - values[i + 1]));
   }
 
   return jitters.length === 0 ? 0 : average(jitters);
 }
 
-exports.average = average;
-exports.median = median;
-exports.quartile = quartile;
-exports.jitter = jitter;
+module.exports.average = average;
+module.exports.median = median;
+module.exports.quartile = quartile;
+module.exports.jitter = jitter;

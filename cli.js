@@ -1,5 +1,5 @@
 #!/usr/bin/env node
 
-const { speedTest } = require('./lib.js');
+const { speedTest } = require("./lib");
 
 speedTest();

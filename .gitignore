@@ -104,4 +104,4 @@ dist
 .tern-port
 
 # Binary we create
-cloudflare-speedtest
+speed-cloudflare-cli

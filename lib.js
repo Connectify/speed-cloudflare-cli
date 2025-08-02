@@ -1,7 +1,8 @@
-const { performance } = require("perf_hooks");
-const https = require("https");
-const { magenta, bold, yellow, green, blue } = require("./chalk.js");
-const stats = require("./stats.js");
+const { performance } = require("node:perf_hooks");
+const https = require("node:https");
+const { magenta, bold, yellow, green, blue } = require("./chalk");
+const stats = require("./stats");
+
 let flushing = true;
 
 /**
@@ -84,15 +85,16 @@ function fetchCfCdnCgiTrace() {
   return get("speed.cloudflare.com", "/cdn-cgi/trace").then(parseCfCdnCgiTrace);
 }
 
-function request(options, data = "") {
+function request(optionsParam, data = "") {
   let started;
   let dnsLookup;
   let tcpHandshake;
   let sslHandshake;
   let ttfb;
   let ended;
+  const options = optionsParam;
 
-  options.agent = new https.Agent(options);
+  options.agent = new https.Agent(optionsParam);
 
   return new Promise((resolve, reject) => {
     started = performance.now();
@@ -103,8 +105,7 @@ function request(options, data = "") {
       res.on("data", () => {});
       res.on("end", () => {
         ended = performance.now();
-        resolve({started, dnsLookup, tcpHandshake, sslHandshake, ttfb, ended,
-                 serverTiming: parseFloat(res.headers["server-timing"].slice(22))});
+        resolve({ started, dnsLookup, tcpHandshake, sslHandshake, ttfb, ended, serverTiming: parseFloat(res.headers["server-timing"].slice(22)) });
       });
     });
 
@@ -224,31 +225,31 @@ function logLatency(data) {
   }
 }
 
-function logSpeedTestResult(display_size, test) {
-  const display_speed = stats.median(test).toFixed(2);
+function logSpeedTestResult(displaySize, test) {
+  const displaySpeed = stats.median(test).toFixed(2);
   if (flushing) {
-    console.log(bold(" ".repeat(9 - display_size.length), display_size, "speed:", yellow(`${display_speed} Mbps`)));
+    console.log(bold(" ".repeat(9 - displaySize.length), displaySize, "speed:", yellow(`${displaySpeed} Mbps`)));
     return;
   }
-  results.download_speeds.push({ size: display_size, speed: display_speed });
+  results.download_speeds.push({ size: displaySize, speed: displaySpeed });
 }
 
 function logDownloadSpeed(tests) {
-  const display_speed = stats.quartile(tests, 0.9).toFixed(2);
+  const displaySpeed = stats.quartile(tests, 0.9).toFixed(2);
   if (flushing) {
-    console.log(bold("  Download speed:", green(display_speed, "Mbps")));
+    console.log(bold("  Download speed:", green(displaySpeed, "Mbps")));
     return;
   }
-  results.download_speeds.push({ size: "overall", speed: display_speed });
+  results.download_speeds.push({ size: "overall", speed: displaySpeed });
 }
 
 function logUploadSpeed(tests) {
-  const display_speed = stats.quartile(tests, 0.9).toFixed(2);
+  const displaySpeed = stats.quartile(tests, 0.9).toFixed(2);
   if (flushing) {
-    console.log(bold("    Upload speed:", green(display_speed, "Mbps")));
+    console.log(bold("    Upload speed:", green(displaySpeed, "Mbps")));
     return;
   }
-  results.upload_speeds.push({ size: "overall", speed: display_speed });
+  results.upload_speeds.push({ size: "overall", speed: displaySpeed });
 }
 
 // Function to parse command-line arguments
@@ -265,7 +266,7 @@ function parseArgs() {
 async function speedTest() {
   const args = parseArgs();
   const [ping, serverLocationData, { ip, loc, colo }] = await Promise.all([measureLatency(), fetchServerLocationData(), fetchCfCdnCgiTrace()]);
-  flushing = !args.json
+  flushing = !args.json;
 
   const city = serverLocationData[colo];
   results = {
@@ -276,10 +277,10 @@ async function speedTest() {
       max: ping[1].toFixed(2),
       average: ping[2].toFixed(2),
       median: ping[3].toFixed(2),
-      jitter: ping[4].toFixed(2)
+      jitter: ping[4].toFixed(2),
     },
     download_speeds: [],
-    upload_speeds: []
+    upload_speeds: [],
   };
   logInfo("Server Location", results.server_location);
   logInfo("Your IP", results.your_ip);
@@ -307,7 +308,7 @@ async function speedTest() {
   const testUp2 = await measureUpload(101000, 10);
   const testUp3 = await measureUpload(1001000, 8);
   const uploadTests = [...testUp1, ...testUp2, ...testUp3];
-  logUploadSpeed(uploadTests)
+  logUploadSpeed(uploadTests);
 
   // Conditional output based on --json option
   if (args.json) {
@@ -332,5 +333,5 @@ module.exports = {
   logDownloadSpeed,
   logUploadSpeed,
   parseArgs,
-  speedTest
+  speedTest,
 };

@@ -1,5 +1,5 @@
 # Define the output binary name
-BINARY = cloudflare-speedtest
+BINARY = speed-cloudflare-cli
 
 # Any args to use when testing
 ARG ?= ""
@@ -11,7 +11,7 @@ ARG ?= ""
 all: $(BINARY)
 
 $(BINARY): cli.js
-	deno compile --unstable-detect-cjs --allow-net --output=$@ $<
+	deno compile --unstable-sloppy-imports --unstable-detect-cjs --allow-net --output=$@ $<
 
 clean:
 	rm -f $(BINARY)
@@ -21,3 +21,27 @@ test:
 
 integration-test: $(BINARY)
 	./$(BINARY) $(ARG)
+
+check: eslint prettier editorconfig
+
+fix: eslint-fix prettier-fix editorconfig-fix
+
+eslint-fix:
+	npx eslint --fix .
+
+eslint:
+	npx eslint .
+
+prettier-fix:
+	npx prettier --write .
+
+prettier:
+	npx prettier --check .
+
+editorconfig:
+	git ls-files -z | xargs -0 grep -qPzlv '\x0a$' || echo "No CR at eof!"
+	git ls-files -z | xargs -0 grep -ql '[[:space:]]$' || echo "EOL whitespace found!"
+
+editorconfig-fix:
+	git ls-files -z | xargs -0 grep -PzZlv "\x0a$$" | xargs -0 -I{} -n 1 sh -c 'echo >> {}'
+	git ls-files -z | xargs -0 grep -PZl '[[:space:]]$$' | xargs -0 -I{} sed -i 's,[[:space:]]*$$,,' {}
