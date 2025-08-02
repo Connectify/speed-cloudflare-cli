@@ -226,13 +226,13 @@ function logLatency(data) {
   }
 }
 
-function logSpeedTestResult(displaySize, test) {
+function logSpeedTestResult(displaySize, test, direction, speedStore) {
   const displaySpeed = stats.median(test).toFixed(2);
   if (flushing) {
-    console.log(bold(" ".repeat(9 - displaySize.length), displaySize, "speed:", yellow(`${displaySpeed} Mbps`)));
+    console.log(bold(" ".repeat(8 - displaySize.length), direction, displaySize, "speed:", yellow(`${displaySpeed} Mbps`)));
     return;
   }
-  results.download_speeds.push({ size: displaySize, speed: displaySpeed });
+  speedStore.push({ size: displaySize, speed: displaySpeed });
 }
 
 function logDownloadSpeed(tests) {
@@ -288,27 +288,39 @@ async function speedTest() {
   logLatency(results.latency);
 
   const testDown1 = await measureDownload(101000, 10);
-  logSpeedTestResult("100kB", testDown1);
+  logSpeedTestResult("100kB", testDown1, "↓", results.download_speeds);
 
   const testDown2 = await measureDownload(1001000, 8);
-  logSpeedTestResult("1MB", testDown2);
+  logSpeedTestResult("1MB", testDown2, "↓", results.download_speeds);
 
   const testDown3 = await measureDownload(10001000, 6);
-  logSpeedTestResult("10MB", testDown3);
+  logSpeedTestResult("10MB", testDown3, "↓", results.download_speeds);
 
   const testDown4 = await measureDownload(25001000, 4);
-  logSpeedTestResult("25MB", testDown4);
+  logSpeedTestResult("25MB", testDown4, "↓", results.download_speeds);
 
   const testDown5 = await measureDownload(100001000, 1);
-  logSpeedTestResult("100MB", testDown5);
+  logSpeedTestResult("100MB", testDown5, "↓", results.download_speeds);
 
   const downloadTests = [...testDown1, ...testDown2, ...testDown3, ...testDown4, ...testDown5];
   logDownloadSpeed(downloadTests);
 
   const testUp1 = await measureUpload(11000, 10);
+  logSpeedTestResult("10kB", testUp1, "↑", results.upload_speeds);
+
   const testUp2 = await measureUpload(101000, 10);
+  logSpeedTestResult("100kB", testUp2, "↑", results.upload_speeds);
+
   const testUp3 = await measureUpload(1001000, 8);
-  const uploadTests = [...testUp1, ...testUp2, ...testUp3];
+  logSpeedTestResult("1MB", testUp3, "↑", results.upload_speeds);
+
+  const testUp4 = await measureUpload(10001000, 6);
+  logSpeedTestResult("10MB", testUp4, "↑", results.upload_speeds);
+
+  const testUp5 = await measureDownload(25001000, 4);
+  logSpeedTestResult("25MB", testUp5, "↑", results.upload_speeds);
+
+  const uploadTests = [...testUp1, ...testUp2, ...testUp3, ...testUp4, ...testUp5];
   logUploadSpeed(uploadTests);
 
   // Conditional output based on --json option
