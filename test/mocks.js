@@ -1,19 +1,19 @@
 const mockServerLocationData = {
-  IAD: 'Ashburn',
-  LAX: 'Los Angeles',
-  JFK: 'New York',
+  IAD: "Ashburn",
+  LAX: "Los Angeles",
+  JFK: "New York",
 };
 
 const mockCdnCgiTrace = {
-  ip: '192.168.1.1',
-  loc: 'US',
-  colo: 'IAD',
-  ts: '1234567890.123',
+  ip: "192.168.1.1",
+  loc: "US",
+  colo: "IAD",
+  ts: "1234567890.123",
 };
 
 const mockHttpsResponse = {
   headers: {
-    'server-timing': 'cfRequestDuration;dur=50.0',
+    "server-timing": "cfRequestDuration;dur=50.0",
   },
 };
 
@@ -27,7 +27,12 @@ const mockPerformanceTiming = [
   50.0, // server processing time
 ];
 
-function createMockResponse(data) {
+function getCallbackIfAny(mockObj, caller) {
+  const findResult = mockObj.on.mock.calls.find((call) => call[0] === caller);
+  return findResult ? findResult[1] : undefined;
+}
+
+function createMockResponse(_data) {
   const mockResponse = {
     on: jest.fn(),
     once: jest.fn(),
@@ -36,13 +41,13 @@ function createMockResponse(data) {
 
   // Simulate data events
   setTimeout(() => {
-    const dataCallback = mockResponse.on.mock.calls.find((call) => call[0] === 'data')?.[1];
+    const dataCallback = getCallbackIfAny(mockResponse, "data");
     if (dataCallback) dataCallback();
 
-    const endCallback = mockResponse.on.mock.calls.find((call) => call[0] === 'end')?.[1];
+    const endCallback = getCallbackIfAny(mockResponse, "end");
     if (endCallback) endCallback();
 
-    const readableCallback = mockResponse.once.mock.calls.find((call) => call[0] === 'readable')?.[1];
+    const readableCallback = getCallbackIfAny(mockResponse, "readable");
     if (readableCallback) readableCallback();
   }, 10);
 
@@ -62,19 +67,19 @@ function createMockRequest() {
       on: jest.fn(),
     };
 
-    const socketCallback = mockRequest.on.mock.calls.find((call) => call[0] === 'socket')?.[1];
+    const socketCallback = getCallbackIfAny(mockRequest, "socket");
     if (socketCallback) {
       socketCallback(mockSocket);
 
       // Simulate socket events
       setTimeout(() => {
-        const lookupCallback = mockSocket.on.mock.calls.find((call) => call[0] === 'lookup')?.[1];
+        const lookupCallback = getCallbackIfAny(mockRequest, "lookup");
         if (lookupCallback) lookupCallback();
 
-        const connectCallback = mockSocket.on.mock.calls.find((call) => call[0] === 'connect')?.[1];
+        const connectCallback = getCallbackIfAny(mockRequest, "connect");
         if (connectCallback) connectCallback();
 
-        const secureConnectCallback = mockSocket.on.mock.calls.find((call) => call[0] === 'secureConnect')?.[1];
+        const secureConnectCallback = getCallbackIfAny(mockRequest, "secureConnect");
         if (secureConnectCallback) secureConnectCallback();
       }, 5);
     }

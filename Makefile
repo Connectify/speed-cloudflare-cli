@@ -24,7 +24,8 @@ integration-test: $(BINARY)
 
 check: eslint prettier editorconfig
 
-fix: eslint-fix prettier-fix editorconfig-fix
+# No autofix is available yet.  See https://github.com/editorconfig-checker/editorconfig-checker/issues/14
+fix: eslint-fix prettier-fix
 
 eslint-fix:
 	npx eslint --fix .
@@ -39,9 +40,4 @@ prettier:
 	npx prettier --check .
 
 editorconfig:
-	git ls-files -z | xargs -0 grep -qPzlv '\x0a$' || echo "No CR at eof!"
-	git ls-files -z | xargs -0 grep -ql '[[:space:]]$' || echo "EOL whitespace found!"
-
-editorconfig-fix:
-	git ls-files -z | xargs -0 grep -PzZlv "\x0a$$" | xargs -0 -I{} -n 1 sh -c 'echo >> {}'
-	git ls-files -z | xargs -0 grep -PZl '[[:space:]]$$' | xargs -0 -I{} sed -i 's,[[:space:]]*$$,,' {}
+	npx editorconfig-checker .

@@ -20,6 +20,7 @@
 </p>
 
 # How to use
+
 ```bash
 npx speed-cloudflare-cli
 ```

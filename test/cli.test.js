@@ -25,6 +25,7 @@ describe("Speed Test CLI", () => {
 
     // Setup performance.now mock to return incrementing values
     let counter = 100;
+    /* eslint no-return-assign: "off" */
     performance.now.mockImplementation(() => (counter += 10));
   });
 
@@ -54,6 +55,7 @@ describe("Speed Test CLI", () => {
         return mockRequest;
       });
 
+      /* eslint n/global-require: "off" */
       const { get } = require("../lib");
 
       const result = await get("speed.cloudflare.com", "/test");
