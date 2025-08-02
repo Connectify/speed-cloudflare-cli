@@ -158,20 +158,27 @@ function measureSpeed(bytes, duration) {
   return (bytes * 8) / (duration / 1000) / 1e6;
 }
 
+async function handlePromises(iterations, operation, responseHandler) {
+  const promises = [];
+
+  for (let i = 0; i < iterations; i += 1) {
+    promises.push(operation().then(responseHandler, (error) => console.error(`Error: ${error}`)));
+  }
+
+  await Promise.all(promises);
+}
+
 async function measureLatency() {
   const measurements = [];
 
-  for (let i = 0; i < 20; i += 1) {
-    await download(1000).then(
-      (response) => {
-        // TTFB - Server processing time
-        measurements.push(response.ttfb - response.started - response.serverTiming);
-      },
-      (error) => {
-        console.error(`Error: ${error}`);
-      },
-    );
-  }
+  await handlePromises(
+    20,
+    () => download(1000),
+    (response) => {
+      // TTFB - Server processing time
+      measurements.push(response.ttfb - response.started - response.serverTiming);
+    },
+  );
 
   return [Math.min(...measurements), Math.max(...measurements), stats.average(measurements), stats.median(measurements), stats.jitter(measurements)];
 }
@@ -179,17 +186,14 @@ async function measureLatency() {
 async function measureDownload(bytes, iterations) {
   const measurements = [];
 
-  for (let i = 0; i < iterations; i += 1) {
-    await download(bytes).then(
-      (response) => {
-        const transferTime = response.ended - response.ttfb;
-        measurements.push(measureSpeed(bytes, transferTime));
-      },
-      (error) => {
-        console.error(`Error: ${error}`);
-      },
-    );
-  }
+  await handlePromises(
+    iterations,
+    () => download(bytes),
+    (response) => {
+      const transferTime = response.ended - response.ttfb;
+      measurements.push(measureSpeed(bytes, transferTime));
+    },
+  );
 
   return measurements;
 }
@@ -197,17 +201,14 @@ async function measureDownload(bytes, iterations) {
 async function measureUpload(bytes, iterations) {
   const measurements = [];
 
-  for (let i = 0; i < iterations; i += 1) {
-    await upload(bytes).then(
-      (response) => {
-        const transferTime = response.serverTiming;
-        measurements.push(measureSpeed(bytes, transferTime));
-      },
-      (error) => {
-        console.error(`Error: ${error}`);
-      },
-    );
-  }
+  await handlePromises(
+    iterations,
+    () => upload(bytes),
+    (response) => {
+      const transferTime = response.serverTiming;
+      measurements.push(measureSpeed(bytes, transferTime));
+    },
+  );
 
   return measurements;
 }
