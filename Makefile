@@ -10,11 +10,14 @@ ARGS ?= ""
 # Default target to compile the CLI tool
 all: $(BINARY)
 
-$(BINARY): cli.js
+node_modules:
+	npm i
+
+$(BINARY): cli.js node_modules
 	deno compile --unstable-sloppy-imports --unstable-detect-cjs --allow-net --allow-run --output=$@ $<
 
 clean:
-	rm -f $(BINARY)
+	rm -rf $(BINARY) node_modules
 
 test:
 	npm test
