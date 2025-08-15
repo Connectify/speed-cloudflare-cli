@@ -11,7 +11,7 @@ ARGS ?= ""
 all: $(BINARY)
 
 $(BINARY): cli.js
-	deno compile --unstable-sloppy-imports --unstable-detect-cjs --allow-net --output=$@ $<
+	deno compile --unstable-sloppy-imports --unstable-detect-cjs --allow-net --allow-run --output=$@ $<
 
 clean:
 	rm -f $(BINARY)

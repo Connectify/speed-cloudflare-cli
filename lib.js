@@ -17,6 +17,13 @@ let flushing = true;
 
 /** @type {Results} */
 let results;
+const iterations = {
+  "100kB": 10,
+  "1MB": 8,
+  "10MB": 6,
+  "25MB": 4,
+  "100MB": 1,
+};
 
 async function get(hostname, path) {
   return new Promise((resolve, reject) => {
@@ -60,7 +67,7 @@ async function fetchServerLocationData() {
   }, {});
 }
 
-function fetchCfCdnCgiTrace() {
+async function fetchCfCdnCgiTrace() {
   const parseCfCdnCgiTrace = (text) =>
     text
       .split("\n")
@@ -158,10 +165,10 @@ function measureSpeed(bytes, duration) {
   return (bytes * 8) / (duration / 1000) / 1e6;
 }
 
-async function handlePromises(iterations, operation, responseHandler) {
+async function handlePromises(count, operation, responseHandler) {
   const promises = [];
 
-  for (let i = 0; i < iterations; i += 1) {
+  for (let i = 0; i < count; i += 1) {
     promises.push(operation().then(responseHandler, (error) => console.error(`Error: ${error}`)));
   }
 
@@ -183,11 +190,11 @@ async function measureLatency() {
   return [Math.min(...measurements), Math.max(...measurements), stats.average(measurements), stats.median(measurements), stats.jitter(measurements)];
 }
 
-async function measureDownload(bytes, iterations) {
+async function measureDownload(bytes, count) {
   const measurements = [];
 
   await handlePromises(
-    iterations,
+    count,
     () => download(bytes),
     (response) => {
       const transferTime = response.ended - response.ttfb;
@@ -198,11 +205,11 @@ async function measureDownload(bytes, iterations) {
   return measurements;
 }
 
-async function measureUpload(bytes, iterations) {
+async function measureUpload(bytes, count) {
   const measurements = [];
 
   await handlePromises(
-    iterations,
+    count,
     () => upload(bytes),
     (response) => {
       const transferTime = response.serverTiming;
@@ -226,13 +233,16 @@ function logLatency(data) {
   }
 }
 
-function logSpeedTestResult(displaySize, test, direction, speedStore) {
+function logSpeedTestResult(displaySize, test, direction = "↑", speedStore = [], show = true) {
   const displaySpeed = stats.median(test).toFixed(2);
-  if (flushing) {
-    console.log(bold(" ".repeat(8 - displaySize.length), direction, displaySize, "speed:", yellow(`${displaySpeed} Mbps`)));
-    return;
+
+  if (flushing && show) {
+    console.log(bold(" ".repeat(7 - displaySize.length), direction, displaySize, "speed:", yellow(`${displaySpeed} Mbps`)));
+    return test;
   }
+
   speedStore.push({ size: displaySize, speed: displaySpeed });
+  return test;
 }
 
 function logDownloadSpeed(tests) {
@@ -258,19 +268,23 @@ function parseArgs() {
   const args = {};
   process.argv.slice(2).forEach((arg) => {
     if (arg.startsWith("--")) {
-      args[arg.slice(2)] = true;
+      /* eslint prefer-const: "off" */
+      let [key, value] = arg.slice(2).split("=");
+      key = key.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      args[key] = value || true;
     }
   });
   return args;
 }
 
-async function speedTest() {
-  const args = parseArgs();
-  const [ping, serverLocationData, { ip, loc, colo }] = await Promise.all([measureLatency(), fetchServerLocationData(), fetchCfCdnCgiTrace()]);
-  flushing = !args.json;
+function convertToBytes(size) {
+  const [value, unit] = size.match(/^(\d+)([a-zA-Z]+)$/).slice(1);
+  const multiplier = { kB: 1024, MB: 1024 * 1024 }[unit];
+  return value * multiplier;
+}
 
-  const city = serverLocationData[colo];
-  results = {
+function getResult(city, ip, loc, colo, ping) {
+  return {
     server_location: `${city} (${colo})`,
     your_ip: `${ip} (${loc})`,
     latency: {
@@ -283,48 +297,59 @@ async function speedTest() {
     download_speeds: [],
     upload_speeds: [],
   };
+}
+
+async function runDownloadTests(speedsToTest, show) {
+  const testPromises = speedsToTest.map(async (size) => {
+    const measured = await measureDownload(convertToBytes(size), iterations[size]);
+    return logSpeedTestResult(size, measured, "↓", results.download_speeds, show);
+  });
+
+  // Wait for all promises to resolve
+  const downloadTestsResults = await Promise.all(testPromises);
+
+  logDownloadSpeed([].concat(...downloadTestsResults));
+}
+
+async function runUploadTests(speedsToTest, show) {
+  const testPromises = speedsToTest.map(async (size) => {
+    const measured = await measureUpload(convertToBytes(size), iterations[size]);
+    return logSpeedTestResult(size, measured, "↑", results.upload_speeds, show);
+  });
+
+  const uploadTestsResults = await Promise.all(testPromises);
+
+  logUploadSpeed([].concat(...uploadTestsResults));
+}
+
+async function speedTest() {
+  const args = parseArgs();
+  const [ping, serverLocationData, { ip, loc, colo }] = await Promise.all([measureLatency(), fetchServerLocationData(), fetchCfCdnCgiTrace()]);
+  const city = serverLocationData[colo];
+  const noSummary = !("summary" in args);
+  const showUp = "showUp" in args;
+  let speedsToTest = Object.keys(iterations);
+
+  if ("only" in args && !(args.only in iterations)) {
+    console.log(`Invalid speed given: ${args.only}`);
+    process.kill(process.pid, "SIGTERM");
+  }
+
+  if ("only" in args) {
+    speedsToTest = [args.only];
+  }
+
+  flushing = !args.json;
+  results = getResult(city, ip, loc, colo, ping);
   logInfo("Server Location", results.server_location);
   logInfo("Your IP", results.your_ip);
   logLatency(results.latency);
 
-  const testDown1 = await measureDownload(101000, 10);
-  logSpeedTestResult("100kB", testDown1, "↓", results.download_speeds);
-
-  const testDown2 = await measureDownload(1001000, 8);
-  logSpeedTestResult("1MB", testDown2, "↓", results.download_speeds);
-
-  const testDown3 = await measureDownload(10001000, 6);
-  logSpeedTestResult("10MB", testDown3, "↓", results.download_speeds);
-
-  const testDown4 = await measureDownload(25001000, 4);
-  logSpeedTestResult("25MB", testDown4, "↓", results.download_speeds);
-
-  const testDown5 = await measureDownload(100001000, 1);
-  logSpeedTestResult("100MB", testDown5, "↓", results.download_speeds);
-
-  const downloadTests = [...testDown1, ...testDown2, ...testDown3, ...testDown4, ...testDown5];
-  logDownloadSpeed(downloadTests);
-
-  const testUp1 = await measureUpload(11000, 10);
-  logSpeedTestResult("10kB", testUp1, "↑", results.upload_speeds);
-
-  const testUp2 = await measureUpload(101000, 10);
-  logSpeedTestResult("100kB", testUp2, "↑", results.upload_speeds);
-
-  const testUp3 = await measureUpload(1001000, 8);
-  logSpeedTestResult("1MB", testUp3, "↑", results.upload_speeds);
-
-  const testUp4 = await measureUpload(10001000, 6);
-  logSpeedTestResult("10MB", testUp4, "↑", results.upload_speeds);
-
-  const testUp5 = await measureDownload(25001000, 4);
-  logSpeedTestResult("25MB", testUp5, "↑", results.upload_speeds);
-
-  const uploadTests = [...testUp1, ...testUp2, ...testUp3, ...testUp4, ...testUp5];
-  logUploadSpeed(uploadTests);
+  await runDownloadTests(speedsToTest, noSummary);
+  await runUploadTests(speedsToTest, noSummary && showUp);
 
   // Conditional output based on --json option
-  if (args.json) {
+  if (!flushing) {
     console.log(JSON.stringify(results, null, 2));
   }
 }
