@@ -264,23 +264,94 @@ function logUploadSpeed(tests) {
 }
 
 // Function to parse command-line arguments
+function basename(p) {
+  if (!p) return "";
+  return (
+    p
+      .replace(/[\\/]+$/, "")
+      .split(/[\\/]/)
+      .pop() || p
+  );
+}
+
+function isRuntimeExecutable(execBase) {
+  const b = execBase.toLowerCase();
+  return b === "node" || b === "node.exe" || b === "deno" || b === "deno.exe";
+}
+
+function displayExec(execPath) {
+  const base = basename(execPath);
+  const hasSep = /[\\/]/.test(execPath);
+  return hasSep ? `./${base}` : base;
+}
+
+function buildInvocation(argv, { includeArgs = true } = {}) {
+  const [execPath = "", scriptPath = "", ...args] = Array.isArray(argv) ? argv : [];
+  const execBase = basename(execPath);
+
+  const parts = [];
+  if (isRuntimeExecutable(execBase)) {
+    // When launched via node/deno, show "node script.js" if a script is present
+    const script = scriptPath && !scriptPath.startsWith("-") ? basename(scriptPath) : "";
+    parts.push(execBase, ...(script ? [script] : []));
+  } else {
+    // Compiled binary: show just the binary name
+    parts.push(displayExec(execPath));
+  }
+
+  if (includeArgs) parts.push(...args);
+  return parts.join(" ").trim();
+}
+
+// Function to parse command-line arguments
 function parseArgs() {
   const args = {};
+
   process.argv.slice(2).forEach((arg) => {
     if (arg.startsWith("--")) {
       /* eslint prefer-const: "off" */
-      let [key, value] = arg.slice(2).split("=");
-      key = key.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      let [key, value] = arg.split("=");
+
+      // Convert --with-space to camelCase
+      key = key.replace(/--([a-z0-9_-]+)/g, (_, rest) =>
+        rest.split('-').map((part, index) => {
+          if (index===0) return part.toLowerCase();
+          return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+        }).join(''));
+
       args[key] = value || true;
     }
   });
-  return args;
+
+  const baseInvocation = buildInvocation(process.argv, { includeArgs: false });
+
+  return { args, baseInvocation };
 }
 
 function convertToBytes(size) {
   const [value, unit] = size.match(/^(\d+)([a-zA-Z]+)$/).slice(1);
   const multiplier = { kB: 1024, MB: 1024 * 1024 }[unit];
   return value * multiplier;
+}
+
+function displayHelp(originalInvocation) {
+  console.log(`
+Usage: ${originalInvocation}
+
+Options
+  --help        Show this help message and exit.
+  --json        Output results in JSON format.
+  --speed-mode  Specify the speed mode. Options are 'slow', 'medium', or 'fast'.
+  --summary     Provide a summary of results.
+  --show-up     Display additional output information.
+
+Examples:
+  ${originalInvocation} --help
+  ${originalInvocation} --json --speed-mode=fast
+  ${originalInvocation} --summary --show-up
+
+For more information, refer to the documentation.
+`);
 }
 
 function getResult(city, ip, loc, colo, ping) {
@@ -323,16 +394,22 @@ async function runUploadTests(speedsToTest, show) {
 }
 
 async function speedTest() {
-  const args = parseArgs();
+  const { args, baseInvocation } = parseArgs();
   const [ping, serverLocationData, { ip, loc, colo }] = await Promise.all([measureLatency(), fetchServerLocationData(), fetchCfCdnCgiTrace()]);
   const city = serverLocationData[colo];
   const noSummary = !("summary" in args);
   const showUp = "showUp" in args;
   let speedsToTest = Object.keys(iterations);
 
+  if ("help" in args) {
+    displayHelp(baseInvocation);
+    return;
+  }
+
   if ("only" in args && !(args.only in iterations)) {
     console.log(`Invalid speed given: ${args.only}`);
-    process.kill(process.pid, "SIGTERM");
+    displayHelp(baseInvocation);
+    return;
   }
 
   if ("only" in args) {

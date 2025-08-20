@@ -346,15 +346,21 @@ describe("Speed Test CLI", () => {
   });
 
   describe("Argument Parsing", () => {
-    test("parseArgs should parse --json flag", () => {
+    test("parseArgs should parse flags to camelCase and, if they have a value, store it", () => {
       const originalArgv = process.argv;
-      process.argv = ["node", "cli.js", "--json"];
-
       const { parseArgs } = require("../lib");
-      const result = parseArgs();
 
-      expect(result.json).toBe(true);
+      process.argv = ["node", "cli.js", "--json"];
+      let result = parseArgs();
+      expect(result.args.json).toBe(true);
 
+      process.argv = ["node", "cli.js", "--as-json"];
+      result = parseArgs();
+      expect(result.args.asJson).toBe(true);
+
+      process.argv = ["node", "cli.js", "--with-json=1"];
+      result = parseArgs();
+      expect(result.args.withJson).toBe("1");
       process.argv = originalArgv;
     });
 
@@ -363,9 +369,10 @@ describe("Speed Test CLI", () => {
       process.argv = ["node", "cli.js"];
 
       const { parseArgs } = require("../lib");
-      const result = parseArgs();
+      const { args, baseInvocation } = parseArgs();
 
-      expect(Object.keys(result)).toHaveLength(0);
+      expect(Object.keys(args)).toHaveLength(0);
+      expect(Object.keys(args)).toHaveLength(0);
 
       process.argv = originalArgv;
     });
