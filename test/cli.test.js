@@ -376,5 +376,27 @@ describe("Speed Test CLI", () => {
 
       process.argv = originalArgv;
     });
+
+    test("format keys with multiple items", () => {
+      const { formatKeys } = require("../lib");
+      const iterations = {
+        "100kB": 10,
+        "1MB": 8,
+        "10MB": 6,
+        "25MB": 4,
+        "100MB": 1,
+      };
+
+      expect(formatKeys(iterations)).toBe("100kB, 1MB, 10MB, 25MB, or 100MB");
+    });
+
+    test("format keys with a single item", () => {
+      const { formatKeys } = require("../lib");
+      const iterations = {
+        "100kB": 10,
+      };
+
+      expect(formatKeys(iterations)).toBe("100kB");
+    });
   });
 });

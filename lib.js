@@ -334,6 +334,20 @@ function convertToBytes(size) {
   return value * multiplier;
 }
 
+function formatKeys(iterations) {
+  const keys = Object.keys(iterations);
+  if (keys.length === 0) return '';
+
+  // Handle the case when there's only one key
+  if (keys.length === 1) {
+    return `${keys[0]}`;
+  }
+
+  // Handle the case with more than one key
+  return [...keys.slice(0, -2), keys[keys.length - 2]].join(', ') + `, or ${keys[keys.length - 1]}`;
+}
+
+
 function displayHelp(originalInvocation) {
   console.log(`
 Usage: ${originalInvocation}
@@ -341,13 +355,13 @@ Usage: ${originalInvocation}
 Options
   --help        Show this help message and exit.
   --json        Output results in JSON format.
-  --speed-mode  Specify the speed mode. Options are 'slow', 'medium', or 'fast'.
+  --only        Specify the speed mode. Options are ${formatKeys(iterations)}.
   --summary     Provide a summary of results.
   --show-up     Display additional output information.
 
 Examples:
   ${originalInvocation} --help
-  ${originalInvocation} --json --speed-mode=fast
+  ${originalInvocation} --json --only=1MB
   ${originalInvocation} --summary --show-up
 
 For more information, refer to the documentation.
@@ -447,6 +461,7 @@ module.exports = {
   logSpeedTestResult,
   logDownloadSpeed,
   logUploadSpeed,
+  formatKeys,
   parseArgs,
   speedTest,
 };
